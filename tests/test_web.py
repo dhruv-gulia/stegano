@@ -103,6 +103,14 @@ def test_research_page_lists_recent_encode(client, cover):
     assert max(widths) == 100.0 and min(widths) < 100.0
 
 
+def test_vercel_encode_inlines_download(client, cover, monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    response = _encode(client, cover)
+    assert response.status_code == 200
+    assert "data:image/png;base64," in response.text
+    assert "/download/" not in response.text
+
+
 def test_download_rejects_bad_ids(client):
     assert client.get("/download/..%2Ffeatures").status_code == 404
     assert client.get("/download/does-not-exist").status_code == 404

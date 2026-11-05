@@ -4,3 +4,7 @@ __pycache__/
 data/
 .pytest_cache/
 .taste-skill/
+.vercel/
+
+.vercel
+.env*

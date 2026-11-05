@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hmac
 import html
 import json
@@ -624,9 +625,14 @@ async def do_encode(
         return page("Encode", _encode_form(str(exc)), 400, "encode")
 
     output_id = secrets.token_urlsafe(9)
-    outputs = data_dir() / "outputs"
-    outputs.mkdir(parents=True, exist_ok=True)
-    (outputs / f"{output_id}.png").write_bytes(result)
+    if os.environ.get("VERCEL"):
+        # Serverless instances do not share /tmp, so inline the PNG in the download link.
+        download_href = "data:image/png;base64," + base64.b64encode(result).decode("ascii")
+    else:
+        outputs = data_dir() / "outputs"
+        outputs.mkdir(parents=True, exist_ok=True)
+        (outputs / f"{output_id}.png").write_bytes(result)
+        download_href = f"/download/{output_id}"
     _record(stats)
 
     cols = 4 if flags["metrics_enabled"] else 2
@@ -658,7 +664,7 @@ async def do_encode(
       <div class="meter-track" role="img" aria-label="Payload uses {stats["fill_percent"]} percent of the image capacity"><div class="meter-fill" style="width:{min(stats["fill_percent"], 100)}%"></div></div>
     </div>
     <div class="btn-row">
-      <a class="btn" href="/download/{output_id}" download="stego-{output_id}.png">Download stego PNG</a>
+      <a class="btn" href="{download_href}" download="stego-{output_id}.png">Download stego PNG</a>
       <a class="btn secondary" href="/decode">Decode an image</a>
     </div>
     <p class="form-note">Keep the file untouched. Any resize or JPEG conversion removes the payload.</p>

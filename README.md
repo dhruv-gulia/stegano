@@ -1,4 +1,6 @@
-# Stegno — Image Steganography with AES-GCM
+# Stegano — Image Steganography with AES-GCM
+
+**Live demo:** https://stegano-two.vercel.app
 
 Minor project: hide an encrypted message inside the pixels of a PNG image, extract it
 again with the right password, measure how invisible the change is, and control the
@@ -72,6 +74,17 @@ $env:ADMIN_TOKEN = "choose-a-long-random-string"
 **Do not resize, screenshot, or convert the output to JPEG** — all of those destroy
 the least significant bits. Download the PNG and upload that exact file.
 
+## Deploy on Vercel
+
+The repo includes `index.py` and `vercel.json` for Vercel's zero-config FastAPI
+runtime, and the live demo runs at https://stegano-two.vercel.app.
+
+Set `ADMIN_TOKEN` in the project's Production environment variables. Serverless
+instances can only write to `/tmp`, so feature flags and research history are
+per-instance and reset on cold starts. The download button inlines the PNG as a data
+URL because function instances do not share files, and Vercel's 4.5 MB request limit
+caps uploads below the admin setting.
+
 ## CLI
 
 ```powershell
@@ -95,7 +108,7 @@ Written MSB-first into consecutive RGB channels:
 
 | Field | Size | Purpose |
 |---|---|---|
-| Magic `STEG1` | 5 B | Identifies a Stegno payload |
+| Magic `STEG1` | 5 B | Identifies a Stegano payload |
 | Salt | 16 B | PBKDF2 salt |
 | Nonce | 12 B | AES-GCM nonce |
 | Plaintext length | 4 B | Big-endian message size |
