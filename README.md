@@ -147,7 +147,9 @@ least significant bits. Download the PNG or BMP and upload that exact file.
 ## Deploy on Vercel
 
 The repo includes `index.py` and `vercel.json` for Vercel's zero-config FastAPI
-runtime, and the live demo runs at https://stegano-two.vercel.app.
+runtime, and the live demo runs at https://stegano-two.vercel.app. Every push to `main`
+runs the tests and then deploys production through `.github/workflows/ci.yml`, using the
+`VERCEL_TOKEN` repository secret.
 
 Set `ADMIN_PASSWORD` in the project's Production environment variables. Serverless
 instances can only write to `/tmp`, so feature flags, research history, and the audit
@@ -303,7 +305,7 @@ limits, admin login/rate limiting, labs, audit logging and CSV export, feature g
 research history, and path-traversal-safe downloads.
 
 GitHub Actions runs the same suite on Python 3.12 for every push to `main` and every
-pull request.
+pull request, then deploys production on `main` after the tests pass.
 
 ## What to demonstrate in a viva
 
