@@ -1,4 +1,4 @@
-"""Command line interface: encode, decode, and measure."""
+"""Command line interface: encode, decode, detect, and measure."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from .analysis import analyze
 from .core import StegError, capacity_bytes, decode, encode
 from .metrics import mse, psnr
 
@@ -23,9 +24,9 @@ def _run_encode(args) -> int:
     except OSError as exc:
         print(f"error: cannot read message file: {exc}", file=sys.stderr)
         return 1
-    output = Path(args.output or f"{Path(args.image).stem}-stego.png")
+    output = Path(args.output or f"{Path(args.image).stem}-stego.{args.format}")
     try:
-        data, stats = encode(args.image, message, _password(args.password))
+        data, stats = encode(args.image, message, _password(args.password), fmt=args.format)
     except StegError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -69,23 +70,41 @@ def _run_metrics(args) -> int:
     return 0
 
 
+def _run_detect(args) -> int:
+    try:
+        report = analyze(args.image)
+    except StegError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"chi-square: {report['chi_square']} (df {report['dof']})")
+    print(f"p-value:    {report['p_value']}")
+    print(f"legacy:     {'STEG1' if report['legacy_header'] else 'none'}")
+    print(report["verdict"])
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="steg", description="LSB image steganography with AES-GCM encryption")
     sub = parser.add_subparsers(dest="command", required=True)
 
     enc = sub.add_parser("encode", help="hide a message in an image")
-    enc.add_argument("image", help="cover image (PNG recommended)")
+    enc.add_argument("image", help="cover image (PNG or BMP recommended)")
     enc.add_argument("-m", "--message", default="", help="message text")
     enc.add_argument("-f", "--message-file", help="read message bytes from a file")
     enc.add_argument("-p", "--password", help="password (prompted if omitted)")
-    enc.add_argument("-o", "--output", help="output PNG path")
+    enc.add_argument("-o", "--output", help="output path")
+    enc.add_argument("--format", choices=["png", "bmp"], default="png", help="output format (default: png)")
     enc.set_defaults(func=_run_encode)
 
     dec = sub.add_parser("decode", help="extract a hidden message")
-    dec.add_argument("image", help="stego PNG")
+    dec.add_argument("image", help="stego image (PNG or BMP)")
     dec.add_argument("-p", "--password", help="password (prompted if omitted)")
     dec.add_argument("-o", "--output", help="write raw bytes to a file")
     dec.set_defaults(func=_run_decode)
+
+    det = sub.add_parser("detect", help="run the chi-square steganalysis test")
+    det.add_argument("image", help="image to analyse")
+    det.set_defaults(func=_run_detect)
 
     met = sub.add_parser("metrics", help="compare cover and stego images")
     met.add_argument("original")

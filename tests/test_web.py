@@ -3,16 +3,18 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from steg import features
+from steg import features, web
 from steg.web import app
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("STEG_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    monkeypatch.setenv("ADMIN_PASSWORD", "test-password")
+    web._FAILS.clear()
     with TestClient(app) as test_client:
         yield test_client
+    web._FAILS.clear()
 
 
 def _encode(client, cover, message="meet at 5", password="secret"):
@@ -70,7 +72,7 @@ def test_admin_requires_login(client):
 
 
 def test_admin_can_toggle_features(client, cover):
-    login = client.post("/admin/login", data={"token": "test-token"}, follow_redirects=False)
+    login = client.post("/admin/login", data={"password": "test-password"}, follow_redirects=False)
     assert login.status_code == 303
 
     # Nothing checked means every feature is turned off.
@@ -79,15 +81,84 @@ def test_admin_can_toggle_features(client, cover):
 
     flags = features.load()
     assert flags["encode_enabled"] is False
+    assert flags["detection_enabled"] is False
+    assert flags["diff_enabled"] is False
+    assert flags["noise_fill_enabled"] is False
     assert flags["max_upload_mb"] == 5
 
     encode_page = client.get("/")
     assert encode_page.status_code == 403
     blocked = _encode(client, cover)
     assert blocked.status_code == 403
+    assert client.get("/detect").status_code == 403
 
     client.post("/admin/flags", data={"max_upload_mb": "5", "decode_enabled": "on"})
     assert features.load()["decode_enabled"] is True
+
+
+def test_admin_login_rejects_wrong_password(client):
+    response = client.post("/admin/login", data={"password": "nope"})
+    assert response.status_code == 401
+    assert "did not match" in response.text
+
+
+def test_admin_default_password_is_1234(client, monkeypatch):
+    monkeypatch.delenv("ADMIN_PASSWORD")
+    login = client.post("/admin/login", data={"password": "1234"}, follow_redirects=False)
+    assert login.status_code == 303
+
+
+def test_admin_login_rate_limit(client):
+    for _ in range(5):
+        response = client.post("/admin/login", data={"password": "wrong"})
+        assert response.status_code == 401
+    blocked = client.post("/admin/login", data={"password": "test-password"})
+    assert blocked.status_code == 429
+    assert "Too many failed attempts" in blocked.text
+
+
+def test_detector_runs_before_and_after(client, cover):
+    response = client.post(
+        "/detect",
+        files={"image": ("cover.png", cover, "image/png")},
+        data={"message": "chi square test", "password": "secret"},
+    )
+    assert response.status_code == 200
+    assert "Original image" in response.text
+    assert "After embedding" in response.text
+    assert "Chi-square" in response.text
+    assert "p-value" in response.text
+
+
+def test_detector_plain_image(client, cover):
+    response = client.post(
+        "/detect",
+        files={"image": ("cover.png", cover, "image/png")},
+        data={},
+    )
+    assert response.status_code == 200
+    assert "Single image" in response.text
+
+
+def test_bmp_download_round_trip(client, cover):
+    response = client.post(
+        "/encode",
+        files={"image": ("cover.png", cover, "image/png")},
+        data={"message": "bmp in the web", "password": "secret", "fmt": "BMP"},
+    )
+    assert response.status_code == 200
+    assert "Download stego BMP" in response.text
+    output_id = re.search(r"/download/([A-Za-z0-9_-]+)", response.text).group(1)
+    download = client.get(f"/download/{output_id}")
+    assert download.headers["content-type"] == "image/bmp"
+    assert download.content[:2] == b"BM"
+    decoded = client.post(
+        "/decode",
+        files={"image": ("stego.bmp", download.content, "image/bmp")},
+        data={"password": "secret"},
+    )
+    assert decoded.status_code == 200
+    assert "bmp in the web" in decoded.text
 
 
 def test_research_page_lists_recent_encode(client, cover):
@@ -98,7 +169,8 @@ def test_research_page_lists_recent_encode(client, cover):
     assert "Encodes shown" in page.text
     assert "PSNR" in page.text
     assert "Capacity per encode" in page.text
-    widths = [float(w) for w in re.findall(r'chart-fill" style="width:([\d.]+)%', page.text)]
+    capacity_section = page.text.split('id="capacity-chart"')[1].split("</section>")[0]
+    widths = [float(w) for w in re.findall(r'chart-fill" style="width:([\d.]+)%', capacity_section)]
     assert len(widths) == 2
     assert max(widths) == 100.0 and min(widths) < 100.0
 

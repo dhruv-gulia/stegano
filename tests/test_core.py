@@ -1,3 +1,6 @@
+import io
+import os
+
 import pytest
 from PIL import Image
 
@@ -31,7 +34,33 @@ def test_plain_image_has_no_payload(cover):
 
 def test_message_larger_than_capacity(cover):
     with pytest.raises(StegError, match="message too large"):
-        encode(cover, b"x" * 6000, "pw")
+        encode(cover, os.urandom(6000), "pw")
+
+
+def test_compression_lets_repetitive_message_fit(cover):
+    message = b"a" * 5000
+    stego, stats = encode(cover, message, "pw")
+    assert stats["compressed"] is True
+    assert decode(stego, "pw") == message
+
+
+def test_bmp_output_round_trip(cover):
+    stego, stats = encode(cover, "bmp test", "pw", fmt="BMP")
+    assert stats["format"] == "BMP"
+    assert stego[:2] == b"BM"
+    assert decode(stego, "pw") == b"bmp test"
+
+
+def test_no_sequential_magic_header(cover):
+    stego, _ = encode(cover, "hidden", "pw")
+    pixels = Image.open(io.BytesIO(stego)).convert("RGB").tobytes()
+    first = bytearray()
+    for index in range(5):
+        byte = 0
+        for bit in range(8):
+            byte = (byte << 1) | (pixels[index * 8 + bit] & 1)
+        first.append(byte)
+    assert bytes(first) != b"STEG1"
 
 
 def test_corrupt_image_is_rejected():

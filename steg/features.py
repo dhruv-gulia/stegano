@@ -13,10 +13,21 @@ DEFAULTS = {
     "decode_enabled": True,
     "metrics_enabled": True,
     "research_enabled": True,
+    "detection_enabled": True,
+    "diff_enabled": True,
+    "noise_fill_enabled": True,
     "max_upload_mb": 10,
 }
 
-BOOL_FLAGS = ("encode_enabled", "decode_enabled", "metrics_enabled", "research_enabled")
+BOOL_FLAGS = (
+    "encode_enabled",
+    "decode_enabled",
+    "metrics_enabled",
+    "research_enabled",
+    "detection_enabled",
+    "diff_enabled",
+    "noise_fill_enabled",
+)
 _lock = threading.RLock()
 
 
