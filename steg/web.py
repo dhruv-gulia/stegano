@@ -379,7 +379,7 @@ CHECK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="cur
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if not os.environ.get("ADMIN_PASSWORD"):
-        print("[steg] ADMIN_PASSWORD not set; admin password defaults to 1234.", flush=True)
+        print("[steg] ADMIN_PASSWORD is not set; set it before exposing this server.", flush=True)
     yield
 
 
@@ -668,7 +668,7 @@ def _login_form(error: str = "") -> str:
 <section class="panel">
   <div class="panel-body">
     <h1>Admin login</h1>
-    <p class="lede">Enter the admin password. Set <span class="mono">ADMIN_PASSWORD</span> to change it from the default <span class="mono">1234</span>.</p>
+    <p class="lede">Enter the admin password configured for this server.</p>
     {alert}
     <form method="post" action="/admin/login">
       <div class="field">
@@ -741,7 +741,7 @@ def _admin_body(flags: dict, notice: str = "", error: str = "") -> str:
   <div class="setting-copy">
     <h2>Session</h2>
     <p>This browser stays signed in for eight hours. The cookie is HttpOnly and SameSite=Lax.</p>
-    <p class="form-note">Password source: <span class="mono">ADMIN_PASSWORD</span>, default <span class="mono">1234</span>. Five failed attempts per address trigger a 60-second lock.</p>
+    <p class="form-note">Password source: <span class="mono">ADMIN_PASSWORD</span>. Five failed attempts per address trigger a 60-second lock.</p>
   </div>
   <div class="setting-panel session-panel">
     <span class="session-state"><span class="dot"></span>Signed in as admin</span>

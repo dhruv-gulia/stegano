@@ -108,6 +108,12 @@ def test_admin_default_password_is_1234(client, monkeypatch):
     assert login.status_code == 303
 
 
+def test_admin_pages_do_not_reveal_password(client):
+    assert "1234" not in client.get("/admin").text
+    client.post("/admin/login", data={"password": "test-password"}, follow_redirects=False)
+    assert "1234" not in client.get("/admin").text
+
+
 def test_admin_login_rate_limit(client):
     for _ in range(5):
         response = client.post("/admin/login", data={"password": "wrong"})

@@ -26,7 +26,7 @@ chi-square detector against your own output.
   before/after self-test on the same upload.
 - **Visual evidence** — amplified difference map and a before/after slider on every
   encode, PSNR and detector charts on the research dashboard.
-- **Admin panel** — password login (default `1234`), rate limiting, and feature toggles
+- **Admin panel** — password login, rate limiting, and feature toggles
   for embedding, extraction, detector, diff/slider, noise fill, metrics, and research.
 
 ![Encode page](docs/screenshots/encode.png)
@@ -75,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1
 
 Open http://127.0.0.1:8000.
 
-The admin password is `1234` by default. Override it with:
+Set the admin password before starting the server:
 
 ```powershell
 $env:ADMIN_PASSWORD = "choose-a-long-random-string"
@@ -214,8 +214,8 @@ report, not this README.
 - **Password strength matters.** scrypt slows guessing, but a weak password is still
   weak. Use a long passphrase.
 - **Admin auth** — password compared in constant time, hashed session cookie
-  (HttpOnly, SameSite=Lax), 5 failures per 60 s per IP. The default `1234` is for the
-  demo; set `ADMIN_PASSWORD` for anything public.
+  (HttpOnly, SameSite=Lax), 5 failures per 60 s per IP. Set a strong
+  `ADMIN_PASSWORD` before exposing the app.
 - **Uploads** are capped (default 10 MB, configurable 1–50 MB) and parsed by Pillow;
   malformed files return a 400 instead of a traceback.
 - Alpha channels are dropped (images are converted to RGB).
@@ -226,7 +226,7 @@ report, not this README.
 .\.venv\Scripts\python -m pytest -q
 ```
 
-35 tests cover text/binary/compressed round trips, BMP output, wrong passwords,
+36 tests cover text/binary/compressed round trips, BMP output, wrong passwords,
 capacity overflow, corrupt files, scatter/no-magic checks, chi-square and legacy
 detection, flag validation/persistence, web encode/decode, upload limits, admin
 password login, rate limiting, feature gating, detector pages, research history, and
