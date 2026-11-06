@@ -84,6 +84,10 @@ def test_admin_can_toggle_features(client, cover):
     assert flags["detection_enabled"] is False
     assert flags["diff_enabled"] is False
     assert flags["noise_fill_enabled"] is False
+    assert flags["ecc_enabled"] is False
+    assert flags["lab_enabled"] is False
+    assert flags["robustness_enabled"] is False
+    assert flags["damage_enabled"] is False
     assert flags["max_upload_mb"] == 5
 
     encode_page = client.get("/")
@@ -91,6 +95,7 @@ def test_admin_can_toggle_features(client, cover):
     blocked = _encode(client, cover)
     assert blocked.status_code == 403
     assert client.get("/detect").status_code == 403
+    assert client.get("/lab").status_code == 403
 
     client.post("/admin/flags", data={"max_upload_mb": "5", "decode_enabled": "on"})
     assert features.load()["decode_enabled"] is True
@@ -192,3 +197,71 @@ def test_vercel_encode_inlines_download(client, cover, monkeypatch):
 def test_download_rejects_bad_ids(client):
     assert client.get("/download/..%2Ffeatures").status_code == 404
     assert client.get("/download/does-not-exist").status_code == 404
+
+
+def test_encode_result_reports_ecc(client, cover):
+    response = _encode(client, cover)
+    assert response.status_code == 200
+    assert "Reed–Solomon" in response.text
+    assert "ECC parity" in response.text
+
+
+def test_labs_page_lists_experiments(client):
+    page = client.get("/lab")
+    assert page.status_code == 200
+    assert "Detector Lab" in page.text
+    assert "Robustness Lab" in page.text
+    assert "Damage Lab" in page.text
+
+
+def test_detector_lab_sweep_and_csv(client, cover):
+    response = client.post(
+        "/lab/detector",
+        files={"image": ("cover.png", cover, "image/png")},
+    )
+    assert response.status_code == 200
+    assert "Detection rate" in response.text
+    assert "RS delta" in response.text
+    assert "Download CSV" in response.text
+
+
+def test_robustness_lab_runs_real_transforms(client, cover):
+    response = client.post(
+        "/lab/robustness",
+        files={"image": ("cover.png", cover, "image/png")},
+        data={"message": "robustness test payload", "password": "secret"},
+    )
+    assert response.status_code == 200
+    assert "JPEG q95" in response.text
+    assert "PNG re-save (control)" in response.text
+    assert "recovered" in response.text
+
+
+def test_damage_lab_shows_ecc_recovery(client, cover):
+    response = client.post(
+        "/lab/damage",
+        files={"image": ("cover.png", cover, "image/png")},
+        data={"message": "Reed-Solomon damage test", "password": "secret", "flips": "8"},
+    )
+    assert response.status_code == 200
+    assert "recovered" in response.text
+    assert "failed" in response.text
+    assert "no hidden message found" in response.text
+
+
+def test_audit_log_and_csv(client):
+    client.post("/admin/login", data={"password": "test-password"}, follow_redirects=False)
+    page = client.get("/admin")
+    assert "Audit log" in page.text
+    assert "login" in page.text
+
+    csv_response = client.get("/admin/audit.csv")
+    assert csv_response.status_code == 200
+    assert "text/csv" in csv_response.headers["content-type"]
+    assert "action,detail" in csv_response.text
+    assert "login" in csv_response.text
+
+
+def test_audit_csv_requires_login(client):
+    response = client.get("/admin/audit.csv")
+    assert response.status_code == 403

@@ -16,6 +16,10 @@ DEFAULTS = {
     "detection_enabled": True,
     "diff_enabled": True,
     "noise_fill_enabled": True,
+    "ecc_enabled": True,
+    "lab_enabled": True,
+    "robustness_enabled": True,
+    "damage_enabled": True,
     "max_upload_mb": 10,
 }
 
@@ -27,6 +31,10 @@ BOOL_FLAGS = (
     "detection_enabled",
     "diff_enabled",
     "noise_fill_enabled",
+    "ecc_enabled",
+    "lab_enabled",
+    "robustness_enabled",
+    "damage_enabled",
 )
 _lock = threading.RLock()
 

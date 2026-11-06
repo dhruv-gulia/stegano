@@ -4,7 +4,7 @@ import os
 import pytest
 from PIL import Image
 
-from steg import StegError, capacity_bytes, decode, encode
+from steg import StegError, capacity_bytes, damage_payload, decode, decode_with_stats, encode
 
 
 def test_round_trip_text(cover):
@@ -76,3 +76,39 @@ def test_capacity_counts_rgb_channels():
 def test_empty_password_is_rejected(cover):
     with pytest.raises(StegError, match="password"):
         encode(cover, "hi", "")
+
+
+def test_ecc_round_trip_adds_parity(cover):
+    stego, stats = encode(cover, "protected payload " * 40, "pw")
+    assert stats["ecc"] is True
+    assert stats["ecc_bytes"] > 0
+    assert stats["ecc_correct"] == 16
+    assert decode(stego, "pw") == b"protected payload " * 40
+
+
+def test_ecc_recovers_targeted_bit_damage(cover):
+    message = "Reed-Solomon payload " * 30
+    stego, _ = encode(cover, message, "pw", noise=False, ecc=True)
+    damaged, info = damage_payload(stego, "pw", 6)
+    assert info["flips"] == 6
+    decoded, stats = decode_with_stats(damaged, "pw")
+    assert decoded == message.encode()
+    assert stats["ecc"] is True
+    assert stats["ecc_corrected"] > 0
+
+
+def test_without_ecc_a_flipped_payload_bit_fails(cover):
+    stego, stats = encode(cover, "fragile payload " * 30, "pw", noise=False, ecc=False)
+    assert stats["ecc"] is False
+    damaged, _ = damage_payload(stego, "pw", 1)
+    with pytest.raises(StegError, match="wrong password"):
+        decode(damaged, "pw")
+
+
+def test_ecc_capacity_is_smaller_than_plain(cover):
+    img = Image.open(io.BytesIO(cover)).convert("RGB")
+    message = os.urandom(capacity_bytes(img) - 70)
+    stego, _ = encode(cover, message, "pw", noise=False, ecc=False)
+    assert decode(stego, "pw") == message
+    with pytest.raises(StegError, match="message too large"):
+        encode(cover, message, "pw", noise=False, ecc=True)

@@ -78,6 +78,7 @@ def _run_detect(args) -> int:
         return 1
     print(f"chi-square: {report['chi_square']} (df {report['dof']})")
     print(f"p-value:    {report['p_value']}")
+    print(f"RS delta:   {report['rs_delta']} (screening threshold 0.02)")
     print(f"legacy:     {'STEG1' if report['legacy_header'] else 'none'}")
     print(report["verdict"])
     return 0

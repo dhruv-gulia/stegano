@@ -1,10 +1,11 @@
 import io
 import random
+from pathlib import Path
 
 from PIL import Image
 
 from steg import analyze, encode
-from steg.analysis import _upper_tail
+from steg.analysis import RS_THRESHOLD, _upper_tail
 
 
 def test_upper_tail_is_a_probability():
@@ -52,3 +53,21 @@ def test_full_lsb_replacement_is_flagged(cover):
     report = analyze(buffer.getvalue())
     assert report["flagged"] is True
     assert report["p_value"] > 0.05
+
+
+def test_rs_report_is_bounded(cover):
+    report = analyze(cover)
+    for key in ("rs_regular_pos", "rs_singular_pos", "rs_regular_neg", "rs_singular_neg"):
+        assert 0.0 <= report[key] <= 1.0
+    assert report["rs_delta"] >= 0.0
+    assert report["rs_flagged"] == (report["rs_delta"] > RS_THRESHOLD)
+    assert report["rs_groups"] > 0
+
+
+def test_rs_catches_noise_fill_on_a_photo_cover():
+    raw = Path("docs/cover.png").read_bytes()
+    stego, _ = encode(raw, "RS noise-fill sample " * 100, "pw", noise=True)
+    report = analyze(stego)
+    assert report["p_value"] <= 0.05
+    assert report["rs_flagged"] is True
+    assert report["flagged"] is True
